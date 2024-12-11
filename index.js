@@ -44,14 +44,29 @@ async function run() {
                res.send(result);
           });
 
-          // bit data post
+          // bit data post in db
 
           app.post('/bid', async (req, res) => {
                const data = req.body;
 
                const result = await bidsCollection.insertOne(data);
                res.send(result);
-          })
+          });
+
+          // add job post in db
+          app.post('/addJob', async (req, res) => {
+               const data = req.body;
+
+               const result = await jobsCollection.insertOne(data);
+               res.send(result)
+          });
+
+          app.get('/my-posted-job/:email', async (req, res) => {
+               const email = req.params.email;
+               const query = { 'buyer.buyer_email': email };
+               const result = await jobsCollection.find(query).toArray();
+               res.send(result)
+          });
 
           // Send a ping to confirm a successful connection
           await client.db("admin").command({ ping: 1 });
