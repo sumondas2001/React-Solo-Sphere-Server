@@ -60,6 +60,7 @@ async function run() {
                const result = await jobsCollection.insertOne(data);
                res.send(result)
           });
+          // my posted job my email db data get
 
           app.get('/my-posted-job/:email', async (req, res) => {
                const email = req.params.email;
@@ -67,6 +68,76 @@ async function run() {
                const result = await jobsCollection.find(query).toArray();
                res.send(result)
           });
+          // my bids job my email db data get
+
+          app.get('/my-bids-job/:email', async (req, res) => {
+               const email = req.params.email;
+               const query = { email: email };
+               const result = await bidsCollection.find(query).toArray();
+               res.send(result)
+          });
+
+          //job delete for db
+
+          app.delete('/jobDelete/:id', async (req, res) => {
+               const id = req.params.id;
+               const query = { _id: new ObjectId(id) };
+
+               const result = await jobsCollection.deleteOne(query)
+               res.send(result);
+          });
+
+          // update for job
+
+          app.put('/updateJob/:id', async (req, res) => {
+               const id = req.params.id;
+               console.log(id);
+               const data = req.body;
+
+               const query = { _id: new ObjectId(id) };
+               const options = { upsert: true };
+
+               const updateDoc = {
+                    $set: {
+                         ...data
+                    }
+               };
+
+               const result = await jobsCollection.updateOne(query, updateDoc, options);
+               res.send(result)
+
+          });
+
+
+
+
+          // bid-Requests data for db
+          app.get('/bids-Requests/:email', async (req, res) => {
+               const email = req.params.email;
+               // console.log(email);
+               const query = { 'buyer.buyer_email': email };
+               const result = await bidsCollection.find(query).toArray();
+               res.send(result);
+          });
+
+
+          app.patch('/bid-update/:id', async (req, res) => {
+               const id = req.params.id;
+               const data = req.body;
+               const query = { _id: new ObjectId(id) };
+
+               const updateDoc = {
+                    $set: {
+                         ...data
+                    }
+               };
+               const result = await bidsCollection.updateOne(query, updateDoc);
+               res.send(result);
+          })
+
+
+
+
 
           // Send a ping to confirm a successful connection
           await client.db("admin").command({ ping: 1 });
