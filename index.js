@@ -3,19 +3,53 @@ const cors = require('cors');
 require('dotenv').config();
 const port = process.env.PORT || 8000;
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const jwt = require('jsonwebtoken');
+
+const cookieParser = require('cookie-parser')
+
 
 const app = express();
 
-const corsOption = {
-     origin: ['http://localhost:5173', 'http://localhost:5174'],
-     Credential: true,
+const corsOptions = {
+     origin: [
+          'http://localhost:5173',
+          'http://localhost:5174',
 
-};
+     ],
+     credentials: true,
+     optionSuccessStatus: 200,
+}
+app.use(cors(corsOptions))
+app.use(express.json())
+app.use(cookieParser())
+
+const verifyToken = (req, res, next) => {
+     const token = req.cookies.token;
+     console.log(token);
+     if (!token) {
+          return res.status(401).send({ message: 'unauthorized access' })
+     };
+
+
+     if (token) {
+          jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (error, decode) => {
+               if (error) {
+                    return req.status(401).send({ message: 'Unauthorized access' })
+               }
+               else {
+                    console.log(decode);
+                    req.user = decode;
+                    next()
+               }
+
+          })
+     }
+
+}
+
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.3y9ux.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
-// middleware
-app.use(cors(corsOption));
-app.use(express.json());
+
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -25,13 +59,40 @@ const client = new MongoClient(uri, {
           deprecationErrors: true,
      }
 });
+
 async function run() {
      try {
           const jobsCollection = client.db('soloSphere').collection('jobs');
           const bidsCollection = client.db('soloSphere').collection('bids');
+
+          // jwt token generate
+          app.post('/jwt', async (req, res) => {
+               const user = req.body;
+               const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+                    expiresIn: '365d'
+               });
+               res.cookie('token', token, {
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === 'production',
+                    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strick'
+               }).send({ success: true })
+          })
+
+          app.get('/logOut', (req, res) => {
+               res.clearCookie('token', {
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === 'production',
+                    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+                    maxAge: 0
+               })
+                    .send({ success: true })
+          })
+
+
           // Get all data from db
           app.get('/jobs', async (req, res) => {
                const result = await jobsCollection.find().toArray();
+               console.log(result);
                res.send(result);
           });
 
@@ -62,16 +123,26 @@ async function run() {
           });
           // my posted job my email db data get
 
-          app.get('/my-posted-job/:email', async (req, res) => {
+          app.get('/my-posted-job/:email', verifyToken, async (req, res) => {
+               const verifyEmail = req.user.email;
+
                const email = req.params.email;
+               if (verifyEmail !== email) {
+                    return res.status(403).send({ message: 'forbidden access' })
+               }
                const query = { 'buyer.buyer_email': email };
                const result = await jobsCollection.find(query).toArray();
                res.send(result)
           });
           // my bids job my email db data get
 
-          app.get('/my-bids-job/:email', async (req, res) => {
+          app.get('/my-bids-job/:email', verifyToken, async (req, res) => {
+               const verifyEmail = req.user.email;
+
                const email = req.params.email;
+               if (verifyEmail !== email) {
+                    return res.status(403).send({ message: 'forbidden access' })
+               }
                const query = { email: email };
                const result = await bidsCollection.find(query).toArray();
                res.send(result)
@@ -112,9 +183,13 @@ async function run() {
 
 
           // bid-Requests data for db
-          app.get('/bids-Requests/:email', async (req, res) => {
+          app.get('/bids-Requests/:email', verifyToken, async (req, res) => {
+               const verifyEmail = req.user.email;
+
                const email = req.params.email;
-               // console.log(email);
+               if (verifyEmail !== email) {
+                    return res.status(403).send({ message: 'forbidden access' })
+               }
                const query = { 'buyer.buyer_email': email };
                const result = await bidsCollection.find(query).toArray();
                res.send(result);
@@ -134,10 +209,6 @@ async function run() {
                const result = await bidsCollection.updateOne(query, updateDoc);
                res.send(result);
           })
-
-
-
-
 
           // Send a ping to confirm a successful connection
           await client.db("admin").command({ ping: 1 });
