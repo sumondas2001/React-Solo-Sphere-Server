@@ -45,7 +45,7 @@ const verifyToken = (req, res, next) => {
           })
      }
 
-}
+};
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.3y9ux.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -74,7 +74,7 @@ async function run() {
                res.cookie('token', token, {
                     httpOnly: true,
                     secure: process.env.NODE_ENV === 'production',
-                    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strick'
+                    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict'
                }).send({ success: true })
           })
 
@@ -109,6 +109,18 @@ async function run() {
 
           app.post('/bid', async (req, res) => {
                const data = req.body;
+
+               const query = {
+                    email: data.email,
+                    jobId: data.jobId,
+               }
+               const alreadyApply = await bidsCollection.findOne(query)
+               console.log(alreadyApply);
+               if (alreadyApply) {
+                    return res.status(400).send('You have Already Placed a Bids On This job..')
+               }
+
+
 
                const result = await bidsCollection.insertOne(data);
                res.send(result);
@@ -166,7 +178,7 @@ async function run() {
                const data = req.body;
 
                const query = { _id: new ObjectId(id) };
-               const options = { upsert: true };
+               const options = { upsert: 'none' };
 
                const updateDoc = {
                     $set: {
