@@ -119,10 +119,13 @@ async function run() {
                if (alreadyApply) {
                     return res.status(400).send('You have Already Placed a Bids On This job..')
                }
+               const jobQuery = { _id: new ObjectId(bidData.jobId) }
 
-
-
+               const updateDoc = {
+                    $inc: { bid_count: 1 }
+               }
                const result = await bidsCollection.insertOne(data);
+               const updateBidCount = await jobsCollection.updateOne(jobQuery, updateDoc)
                res.send(result);
           });
 
@@ -226,15 +229,42 @@ async function run() {
           app.get('/all-jobs', async (req, res) => {
                const size = parseInt(req.query.size);
                const pages = parseInt(req.query.pages) - 1;
-               console.log(size);
 
-               const result = await jobsCollection.find().skip(pages * size).limit(size).toArray();
-               console.log(result);
+               const filter = req.query.filter;
+               const search = req.query.search;
+               const sort = req.query.sort;
+               console.log(sort);
+
+               // sort method
+               let options = {};
+               if (sort) options = { sort: { deadline: sort === 'asc' ? 1 : -1 } }
+
+
+
+               // filter method
+               let query = {
+                    job_title: { $regex: search, $options: 'i' }
+               };
+               if (filter) query = query.category = filter;
+               console.log(filter);
+
+               const result = await jobsCollection.find(query, options).skip(pages * size).limit(size).toArray();
+               // console.log(result);
                res.send(result);
           });
 
           // Get all jobs count from db
           app.get('/jobs-count', async (req, res) => {
+               const filter = req.query.filter;
+               const search = req.query.search;
+
+               // filter method
+               let query = {
+                    job_title: { $regex: search, $options: 'i' }
+               };
+               if (filter) query = query.category = filter;
+
+
                const count = await jobsCollection.countDocuments()
                // console.log(result);
                res.send({ count });
